@@ -1,6 +1,5 @@
 import os
 import json
-from google import genai
 from flask import current_app
 
 
