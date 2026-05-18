@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block title %}{{ meeting.title }} – MeetingAI{% endblock %}
+
+{% block extra_css %}
+<style>
+  .result-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .result-meta { display: flex; align-items: center; gap: 0.75rem; margin-top: 0.5rem; flex-wrap: wrap; }
+  .result-meta span { font-size: 0.78rem; color: var(--muted); }
+
+  .section-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    margin-bottom: 1.2rem;
+  }
+  .section-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .section-label.decisions { color: var(--accent2); }
+  .section-label.actions   { color: var(--warn); }
+
+  .summary-text {
+    color: var(--text);
+    font-size: 0.9rem;
+    line-height: 1.8;
+  }
+
+  /* Action items table */
+  .action-table { width: 100%; border-collapse: collapse; }
+  .action-table th {
+    text-align: left;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    padding: 0 0 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .action-table td {
+    padding: 0.75rem 0;
+    font-size: 0.85rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .action-table tr:last-child td { border-bottom: none; }
+  .owner-chip {
+    display: inline-block;
+    padding: 2px 10px;
+    background: #1a1730;
+    border: 1px solid var(--accent);
+    border-radius: 20px;
+    font-size: 0.75rem;
+    color: var(--accent);
+  }
+  .deadline-chip {
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  /* Decisions list */
+  .decision-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.65rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.88rem;
+  }
+  .decision-item:last-child { border-bottom: none; }
+  .decision-item::before {
+    content: '✓';
+    color: var(--accent2);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .empty-state {
+    color: var(--muted);
+    font-size: 0.82rem;
+    font-style: italic;
+    padding: 0.5rem 0;
+  }
+
+  /* Transcript toggle */
+  .transcript-toggle {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.82rem;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 0.75rem;
+  }
+  .transcript-toggle:hover { color: var(--text); }
+  .transcript-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem 1.2rem;
+    font-size: 0.82rem;
+    color: var(--muted);
+    max-height: 260px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    display: none;
+    line-height: 1.8;
+  }
+  .transcript-box.open { display: block; }
+
+  .actions-row {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 2rem;
+    flex-wrap: wrap;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+
+  <div class="result-header">
+    <div>
+      <h1>{{ meeting.title }}</h1>
+      <div class="result-meta">
+        <span class="badge badge-{{ meeting.input_type }}">{{ meeting.input_type }}</span>
+        <span class="badge badge-done">Done</span>
+        <span>{{ meeting.created_at.strftime('%b %d, %Y · %H:%M') }}</span>
+      </div>
+    </div>
+    <a href="{{ url_for('main.index') }}" class="btn btn-outline">+ New Meeting</a>
+  </div>
+
+  <!-- Summary -->
+  <div class="section-card">
+    <div class="section-label">◈ Summary</div>
+    <p class="summary-text">{{ meeting.summary or 'No summary available.' }}</p>
+  </div>
+
+  <!-- Action Items -->
+  <div class="section-card">
+    <div class="section-label actions">⚡ Action Items</div>
+    {% if action_items %}
+      <table class="action-table">
+        <thead>
+          <tr>
+            <th style="width:50%">Task</th>
+            <th style="width:25%">Owner</th>
+            <th style="width:25%">Deadline</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in action_items %}
+          <tr>
+            <td>{{ item.task }}</td>
+            <td><span class="owner-chip">{{ item.owner }}</span></td>
+            <td><span class="deadline-chip">{{ item.deadline }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="empty-state">No action items identified.</p>
+    {% endif %}
+  </div>
+
+  <!-- Key Decisions -->
+  <div class="section-card">
+    <div class="section-label decisions">◉ Key Decisions</div>
+    {% if key_decisions %}
+      {% for decision in key_decisions %}
+        <div class="decision-item">{{ decision }}</div>
+      {% endfor %}
+    {% else %}
+      <p class="empty-state">No key decisions identified.</p>
+    {% endif %}
+  </div>
+
+  <!-- Transcript -->
+  {% if meeting.transcript %}
+  <div class="section-card">
+    <button class="transcript-toggle" onclick="toggleTranscript(this)">
+      ▶ Show Transcript
+    </button>
+    <div class="transcript-box" id="transcriptBox">{{ meeting.transcript }}</div>
+  </div>
+  {% endif %}
+
+  <div class="actions-row">
+    <a href="{{ url_for('main.history') }}" class="btn btn-outline">← History</a>
+    <form action="{{ url_for('main.delete_meeting', meeting_id=meeting.id) }}" method="POST" onsubmit="return confirm('Delete this summary?')">
+      <button type="submit" class="btn btn-danger">🗑 Delete</button>
+    </form>
+  </div>
+
+</div>
+
+<script>
+  function toggleTranscript(btn) {
+    const box = document.getElementById('transcriptBox');
+    const open = box.classList.toggle('open');
+    btn.textContent = (open ? '▼ Hide Transcript' : '▶ Show Transcript');
+  }
+</script>
+{% endblock %}
